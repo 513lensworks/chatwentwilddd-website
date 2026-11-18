@@ -1,0 +1,54 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>ChatWentWilddd | Snapchat Authorization</title>
+  <style>
+    body {
+      background: #101010;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 80px 20px;
+    }
+    h1 { color: #fffc00; }
+    .message {
+      max-width: 500px;
+      margin: 30px auto;
+      line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+  <h1>ChatWentWilddd</h1>
+  <h2>Snapchat Authorization</h2>
+  <p class="message" id="status">
+    Checking authorization response...
+  </p>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+
+    // Remove authorization parameters from the visible URL.
+    window.history.replaceState({}, "", window.location.pathname);
+
+    const status = document.getElementById("status");
+
+    if (params.has("error")) {
+      status.textContent =
+        "Snapchat authorization was declined or failed.";
+    } else if (params.has("code")) {
+      status.textContent =
+        "Snapchat returned an authorization response. " +
+        "The secure server-side token exchange is not configured yet. " +
+        "Do not share authorization codes.";
+    } else {
+      status.textContent =
+        "Callback page is online and ready for configuration.";
+    }
+  </script>
+</body>
+</html>
