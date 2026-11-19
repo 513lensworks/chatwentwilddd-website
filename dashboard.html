@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Publishing Dashboard | ChatWentWilddd</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #080812;
+      color: #f5f5ff;
+    }
+
+    nav {
+      padding: 18px 6%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #24243b;
+    }
+
+    .brand {
+      font-weight: 800;
+      font-size: 21px;
+    }
+
+    nav a {
+      color: #bfc4ff;
+      text-decoration: none;
+      margin-left: 20px;
+    }
+
+    main {
+      width: min(1200px, 92%);
+      margin: 45px auto;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #a8abc4;
+      margin-bottom: 30px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+      padding: 18px;
+      background: #11111d;
+      border: 1px solid #292943;
+      border-radius: 14px;
+      margin-bottom: 25px;
+    }
+
+    .account {
+      color: #61e8ff;
+      font-weight: 700;
+    }
+
+    #status {
+      color: #b9bbcf;
+    }
+
+    .logout {
+      background: transparent;
+      border: 1px solid #464663;
+      color: white;
+      padding: 9px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 22px;
+    }
+
+    .card {
+      background: #11111d;
+      border: 1px solid #292943;
+      border-radius: 15px;
+      overflow: hidden;
+    }
+
+    video {
+      width: 100%;
+      aspect-ratio: 9 / 16;
+      background: #000;
+      object-fit: contain;
+      max-height: 500px;
+    }
+
+    .info {
+      padding: 17px;
+    }
+
+    .filename {
+      font-weight: 700;
+      overflow-wrap: anywhere;
+      margin-bottom: 8px;
+    }
+
+    .meta {
+      color: #9fa2b8;
+      font-size: 14px;
+      margin-bottom: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 9px;
+      border-radius: 20px;
+      background: #24243a;
+      font-size: 13px;
+      margin-bottom: 15px;
+    }
+
+    .not_sent { color: #61e8ff; }
+    .uploading, .processing { color: #ffd66b; }
+    .needs_review { color: #8cffad; }
+    .sent { color: #8cffad; }
+    .failed { color: #ff8080; }
+
+    .send {
+      width: 100%;
+      padding: 12px;
+      border: 0;
+      border-radius: 9px;
+      background: linear-gradient(90deg, #7047ff, #20d7ff);
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .send:disabled {
+      background: #303044;
+      color: #8d8da2;
+      cursor: not-allowed;
+    }
+
+    .message {
+      margin-top: 10px;
+      font-size: 13px;
+      min-height: 16px;
+      color: #b9bbcf;
+    }
+
+    .empty {
+      padding: 35px;
+      background: #11111d;
+      border-radius: 14px;
+      border: 1px solid #292943;
+    }
+  </style>
+</head>
+
+<body>
+  <nav>
+    <div class="brand">ChatWentWilddd</div>
+    <div>
+      <a href="index.html">Home</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="terms.html">Terms</a>
+      <a href="privacy.html">Privacy</a>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Publishing Dashboard</h1>
+    <div class="subtitle">
+      Review finished clips before sending them to connected platforms.
+    </div>
+
+    <div class="topbar">
+      <div>
+        TikTok:
+        <span class="account" id="account">Loading...</span>
+      </div>
+
+      <div id="status">Connecting...</div>
+
+      <button class="logout" onclick="logout()">
+        Log Out
+      </button>
+    </div>
+
+    <div id="clips" class="grid"></div>
+  </main>
+
+<script>
+const API = "https://chatwentwilddd.duckdns.org";
+const KEY_NAME = "chatwentwilddd_dashboard_key";
+const blobUrls = [];
+
+function getDashboardKey() {
+  let key = sessionStorage.getItem(KEY_NAME);
+
+  if (!key) {
+    key = prompt("Enter your ChatWentWilddd dashboard key:");
+
+    if (key) {
+      sessionStorage.setItem(KEY_NAME, key.trim());
+    }
+  }
+
+  return key;
+}
+
+function logout() {
+  sessionStorage.removeItem(KEY_NAME);
+
+  for (const url of blobUrls) {
+    URL.revokeObjectURL(url);
+  }
+
+  location.reload();
+}
+
+async function authenticatedFetch(url, options = {}) {
+  const key = getDashboardKey();
+
+  if (!key) {
+    throw new Error("Dashboard login required.");
+  }
+
+  options.headers = {
+    ...(options.headers || {}),
+    "Authorization": "Bearer " + key
+  };
+
+  const response = await fetch(url, options);
+
+  if (response.status === 401) {
+    sessionStorage.removeItem(KEY_NAME);
+    throw new Error("Invalid dashboard key. Refresh and try again.");
+  }
+
+  return response;
+}
+
+function statusText(status) {
+  const labels = {
+    not_sent: "Not sent",
+    uploading: "Uploading to TikTok",
+    processing: "TikTok processing",
+    needs_review: "TikTok accepted — inbox step pending",
+    sent: "Sent",
+    failed: "Upload failed"
+  };
+
+  return labels[status] || status;
+}
+
+async function loadVideo(filename, video) {
+  try {
+    const response = await authenticatedFetch(
+      API + "/api/video/" + encodeURIComponent(filename)
+    );
+
+    if (!response.ok) {
+      throw new Error("Video unavailable");
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+
+    blobUrls.push(url);
+    video.src = url;
+
+  } catch (error) {
+    console.error("Video load failed:", filename, error);
+  }
+}
+
+function createClipCard(clip) {
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const video = document.createElement("video");
+  video.controls = true;
+  video.preload = "metadata";
+
+  const info = document.createElement("div");
+  info.className = "info";
+
+  const filename = document.createElement("div");
+  filename.className = "filename";
+  filename.textContent = clip.filename;
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  meta.textContent = clip.size_mb + " MB";
+
+  const badge = document.createElement("div");
+  badge.className = "badge " + clip.tiktok_status;
+  badge.textContent = statusText(clip.tiktok_status);
+
+  const button = document.createElement("button");
+  button.className = "send";
+
+  const message = document.createElement("div");
+  message.className = "message";
+
+  if (clip.tiktok_status === "not_sent") {
+    button.textContent = "Send to TikTok";
+    button.disabled = false;
+
+    button.addEventListener("click", () => {
+      sendTikTok(clip.filename, button, message);
+    });
+
+  } else {
+    button.textContent = statusText(clip.tiktok_status);
+    button.disabled = true;
+  }
+
+  info.appendChild(filename);
+  info.appendChild(meta);
+  info.appendChild(badge);
+  info.appendChild(button);
+  info.appendChild(message);
+
+  card.appendChild(video);
+  card.appendChild(info);
+
+  loadVideo(clip.filename, video);
+
+  return card;
+}
+
+async function loadDashboard() {
+  const status = document.getElementById("status");
+  const clipsElement = document.getElementById("clips");
+
+  try {
+    const response = await authenticatedFetch(
+      API + "/api/dashboard"
+    );
+
+    if (!response.ok) {
+      throw new Error("Dashboard API returned " + response.status);
+    }
+
+    const data = await response.json();
+
+    document.getElementById("account").textContent =
+      "@" + data.tiktok_account;
+
+    status.textContent =
+      data.clips.length + " finished clip(s)";
+
+    clipsElement.replaceChildren();
+
+    if (!data.clips.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "No finished clips are currently available.";
+      clipsElement.appendChild(empty);
+      return;
+    }
+
+    for (const clip of data.clips) {
+      clipsElement.appendChild(createClipCard(clip));
+    }
+
+  } catch (error) {
+    status.textContent = error.message;
+    clipsElement.replaceChildren();
+  }
+}
+
+async function sendTikTok(filename, button, message) {
+  const confirmed = confirm(
+    "Send this clip to TikTok for review?\n\n" +
+    filename +
+    "\n\nThis action counts as a TikTok upload."
+  );
+
+  if (!confirmed) return;
+
+  button.disabled = true;
+  button.textContent = "Sending...";
+  message.textContent = "Uploading to TikTok...";
+
+  try {
+    const response = await authenticatedFetch(
+      API + "/api/tiktok/send",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ filename })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "TikTok upload failed.");
+    }
+
+    message.textContent =
+      "TikTok accepted the clip. Check TikTok for the next step.";
+
+    button.textContent = "TikTok accepted";
+
+    setTimeout(loadDashboard, 1500);
+
+  } catch (error) {
+    message.textContent = error.message;
+    button.textContent = "Send to TikTok";
+    button.disabled = false;
+  }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>
